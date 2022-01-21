@@ -49,9 +49,6 @@ class Recipe(models.Model):
     tags = models.ManyToManyField(Tag, through='TagForRecipe')
     cooking_time = models.PositiveIntegerField(default=1)
 
-    # is_favorited
-    # is_in_shopping_cart
-
     def __str__(self):
         return self.name
 
@@ -60,8 +57,8 @@ class Recipe(models.Model):
 
 
 class IngredientInRecipeForRecipe(models.Model):
-    ingredient = models.ForeignKey(IngredientInRecipe,
-                                   on_delete=models.CASCADE)
+    ingredient_in_recipe = models.ForeignKey(IngredientInRecipe,
+                                             on_delete=models.CASCADE)
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
 
