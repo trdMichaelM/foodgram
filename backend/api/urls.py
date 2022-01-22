@@ -11,5 +11,6 @@ router.register(r'tags', TagReadOnlyModelViewSet)
 router.register(r'ingredients', IngredientReadOnlyModelViewSet)
 
 urlpatterns = [
-    path('', include(router.urls))
+    path('', include(router.urls)),
+    path(r'auth/', include('djoser.urls.authtoken')),
 ]

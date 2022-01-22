@@ -88,3 +88,8 @@ class RecipeSerializer(serializers.ModelSerializer):
     def get_is_in_shopping_cart(self, obj):
         return False
         # TODO:
+
+
+class SetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(max_length=150)
+    current_password = serializers.CharField(max_length=150)
