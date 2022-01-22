@@ -1,28 +1,24 @@
+import uuid
+import base64
+
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-from recipes.models import (Recipe, Tag, Ingredient, IngredientInRecipe,
-                            TagForRecipe, IngredientInRecipeForRecipe)
+from recipes.models import Recipe, Tag, Ingredient, IngredientInRecipe
 
 User = get_user_model()
 
 
-class Base64Image(serializers.Field):
-    pass
-#     # При чтении данных ничего не меняем - просто возвращаем как есть
-#     def to_representation(self, value):
-#         return value
-#     # При записи код цвета конвертируется в его название
-#     def to_internal_value(self, data):
-#         # Доверяй, но проверяй
-#         try:
-#             # Если имя цвета существует, то конвертируем код в название
-#             data = webcolors.hex_to_name(data)
-#         except ValueError:
-#             # Иначе возвращаем ошибку
-#             raise serializers.ValidationError('Для этого цвета нет имени')
-#         # Возвращаем данные в новом формате
-#         return data
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, img_str = data.split(';base64,')
+            extension = format.split('/')[-1]
+            id = uuid.uuid4()
+            name = f'{id.urn[9:]}.{extension}'
+            data = ContentFile(base64.b64decode(img_str), name=name)
+        return super().to_internal_value(data)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -69,7 +65,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     ingredients = IngredientInRecipeSerializer(many=True)
     is_favorited = serializers.SerializerMethodField(read_only=True)
     is_in_shopping_cart = serializers.SerializerMethodField(read_only=True)
-    image = Base64Image()
+    image = Base64ImageField()
 
     class Meta:
         model = Recipe
@@ -77,9 +73,13 @@ class RecipeSerializer(serializers.ModelSerializer):
                   'is_in_shopping_cart', 'name', 'image', 'text',
                   'cooking_time')
 
-    def create(self, validated_data):
-        pass
-        # TODO
+    # def create(self, validated_data):
+    #     pass
+    #     # TODO
+
+    # def update(self, instance, validated_data):
+    #     pass
+    #     # TODO:
 
     def get_is_favorited(self, obj):
         return False

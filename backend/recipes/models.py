@@ -31,6 +31,10 @@ class IngredientInRecipe(models.Model):
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.IntegerField(default=1)
 
+    def __str__(self):
+        return (f'{self.ingredient.name} - {self.amount} '
+                f'{self.ingredient.measurement_unit}')
+
 
 class Recipe(models.Model):
     author = models.ForeignKey(
@@ -44,9 +48,14 @@ class Recipe(models.Model):
     text = models.TextField()
     ingredients = models.ManyToManyField(
         IngredientInRecipe,
-        through='IngredientInRecipeForRecipe'
+        related_name='recipe'
+        # through='IngredientInRecipeForRecipe',
     )
-    tags = models.ManyToManyField(Tag, through='TagForRecipe')
+    tags = models.ManyToManyField(
+        Tag,
+        related_name='recipe'
+        # through='TagForRecipe'
+    )
     cooking_time = models.PositiveIntegerField(default=1)
 
     def __str__(self):
@@ -56,15 +65,15 @@ class Recipe(models.Model):
         ordering = ['-pub_date']
 
 
-class IngredientInRecipeForRecipe(models.Model):
-    ingredient_in_recipe = models.ForeignKey(IngredientInRecipe,
-                                             on_delete=models.CASCADE)
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-
-
-class TagForRecipe(models.Model):
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+# class IngredientInRecipeForRecipe(models.Model):
+#     ingredient_in_recipe = models.ForeignKey(IngredientInRecipe,
+#                                              on_delete=models.CASCADE)
+#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+#
+#
+# class TagForRecipe(models.Model):
+#     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
+#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
 
 
 class Favorite(models.Model):
