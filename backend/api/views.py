@@ -1,7 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as ValidationError_dj
+from django.core.exceptions import (ValidationError as
+                                    ValidationErrorFromDjangoCore)
 from django.contrib.auth.hashers import check_password
+from django.db.models import BooleanField, Value, Exists
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,26 +11,21 @@ from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework import status
 
-from recipes.models import Recipe, Tag, Ingredient
+from recipes.models import Recipe, Tag, Ingredient, Subscription
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
-                          IngredientSerializer, SetPasswordSerializer)
+                          IngredientSerializer, SetPasswordSerializer,
+                          )
 
 User = get_user_model()
 
 
-def login():
-    """Получить токен авторизации."""
-    pass
-
-
-def logout():
-    """Удаление токена."""
-    pass
-
-
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
+    # queryset = User.objects.all().annotate(is_subscribed=Value(True, output_field=BooleanField()))
+    # is_subscribed = Subscription.objects.filter()
+    # queryset = User.objects.all().annotate(is_subscribed=Exists())
+
     serializer_class = UserSerializer
 
     permission_classes = [permissions.IsAuthenticated]
@@ -59,8 +56,12 @@ class UserViewSet(viewsets.ModelViewSet):
             raise ValidationError('Current password is wrong!')
         try:
             validate_password(new_password, user)
-        except ValidationError_dj as err:
+        except ValidationErrorFromDjangoCore as err:
             raise ValidationError(err)
+        if current_password == new_password:
+            raise ValidationError(
+                'New password and current password are the same!'
+            )
         user.set_password(new_password)
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -71,6 +72,16 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
 
     http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return (permissions.AllowAny(),)
+        return super().get_permissions()
+
+    # def get_serializer_class(self):
+    #     if self.action == 'create':
+    #         return RecipeCreateSerializer
+    #     return super().get_serializer_class()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

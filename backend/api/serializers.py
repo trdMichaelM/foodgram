@@ -3,6 +3,7 @@ import base64
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
 from recipes.models import Recipe, Tag, Ingredient, IngredientInRecipe
@@ -22,16 +23,12 @@ class Base64ImageField(serializers.ImageField):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    is_subscribed = serializers.SerializerMethodField()
+    is_subscribed = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = User
         fields = ('email', 'id', 'username', 'first_name', 'last_name',
                   'is_subscribed')
-
-    def get_is_subscribed(self, obj):
-        return False
-        # TODO:
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -47,11 +44,11 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
-    # ingredient = IngredientSerializer()
-    id = serializers.CharField(source='ingredient.id')
-    name = serializers.CharField(source='ingredient.name')
+    id = serializers.CharField(source='ingredient.id', read_only=True)
+    name = serializers.CharField(source='ingredient.name', read_only=True)
     measurement_unit = serializers.CharField(
-        source='ingredient.measurement_unit'
+        source='ingredient.measurement_unit',
+        read_only=True
     )
 
     class Meta:
@@ -59,12 +56,42 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
+class TagRelatedField(serializers.RelatedField):
+    def to_representation(self, value):
+        serializer = TagSerializer(value)
+        return serializer.data
+
+    def to_internal_value(self, data):
+        tag = get_object_or_404(Tag, id=data)
+        return tag
+
+
+class IngredientInRecipeCreateSerializer(serializers.Serializer):
+    """Вспомогательный сериалайзер для IngredientInRecipeRelatedField."""
+    id = serializers.IntegerField()
+    amount = serializers.IntegerField()
+
+
+class IngredientInRecipeRelatedField(serializers.RelatedField):
+    def to_representation(self, value):
+        serializer = IngredientInRecipeSerializer(value)
+        return serializer.data
+
+    def to_internal_value(self, data):
+        serializer = IngredientInRecipeCreateSerializer(data)
+        return serializer.data
+
+
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    tags = TagSerializer(many=True)
-    ingredients = IngredientInRecipeSerializer(many=True)
-    is_favorited = serializers.SerializerMethodField(read_only=True)
-    is_in_shopping_cart = serializers.SerializerMethodField(read_only=True)
+    tags = TagRelatedField(many=True, queryset=Tag.objects.all())
+    ingredients = IngredientInRecipeRelatedField(
+        many=True,
+        queryset=IngredientInRecipe.objects.all()
+    )
+    is_favorited = serializers.BooleanField(read_only=True, default=False)
+    is_in_shopping_cart = serializers.BooleanField(read_only=True,
+                                                   default=False)
     image = Base64ImageField()
 
     class Meta:
@@ -73,21 +100,25 @@ class RecipeSerializer(serializers.ModelSerializer):
                   'is_in_shopping_cart', 'name', 'image', 'text',
                   'cooking_time')
 
-    # def create(self, validated_data):
-    #     pass
-    #     # TODO
+    def create(self, validated_data):
+        tags = validated_data.pop('tags')
+        ingredients = validated_data.pop('ingredients')
 
-    # def update(self, instance, validated_data):
-    #     pass
-    #     # TODO:
+        recipe = Recipe.objects.create(**validated_data)
 
-    def get_is_favorited(self, obj):
-        return False
-        # TODO:
+        for tag in tags:
+            recipe.tags.add(tag)
 
-    def get_is_in_shopping_cart(self, obj):
-        return False
-        # TODO:
+        for ingredient in ingredients:
+            ingredient_id = ingredient['id']
+            amount = ingredient['amount']
+            ingredient_in_recipe = IngredientInRecipe.objects.create(
+                ingredient=Ingredient.objects.get(id=ingredient_id),
+                amount=amount
+            )
+            recipe.ingredients.add(ingredient_in_recipe)
+
+        return recipe
 
 
 class SetPasswordSerializer(serializers.Serializer):

@@ -35,6 +35,9 @@ class IngredientInRecipe(models.Model):
         return (f'{self.ingredient.name} - {self.amount} '
                 f'{self.ingredient.measurement_unit}')
 
+    class Meta:
+        ordering = ['pk']
+
 
 class Recipe(models.Model):
     author = models.ForeignKey(
@@ -48,15 +51,13 @@ class Recipe(models.Model):
     text = models.TextField()
     ingredients = models.ManyToManyField(
         IngredientInRecipe,
-        related_name='recipe'
-        # through='IngredientInRecipeForRecipe',
+        related_name='recipes'
     )
     tags = models.ManyToManyField(
         Tag,
-        related_name='recipe'
-        # through='TagForRecipe'
+        related_name='recipes'
     )
-    cooking_time = models.PositiveIntegerField(default=1)
+    cooking_time = models.PositiveSmallIntegerField()
 
     def __str__(self):
         return self.name
@@ -65,22 +66,19 @@ class Recipe(models.Model):
         ordering = ['-pub_date']
 
 
-# class IngredientInRecipeForRecipe(models.Model):
-#     ingredient_in_recipe = models.ForeignKey(IngredientInRecipe,
-#                                              on_delete=models.CASCADE)
-#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-#
-#
-# class TagForRecipe(models.Model):
-#     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
-#     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
-
-
 class Favorite(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='favorites')
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='favorites')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
+            )
+        ]
 
 
 class Cart(models.Model):
@@ -89,9 +87,25 @@ class Cart(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='buyers')
 
+    class Mete:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_user_recipe'
+            )
+        ]
+
 
 class Subscription(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE,
                              related_name='subscriptions')
     author = models.ForeignKey(User, on_delete=models.CASCADE,
                                related_name='subscribers')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name='unique_user_author'
+            )
+        ]
