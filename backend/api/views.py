@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import (ValidationError as
                                     ValidationErrorFromDjangoCore)
 from django.contrib.auth.hashers import check_password
-from django.db.models import BooleanField, Value, Exists
+from django.db.models import BooleanField, Value, Exists, OuterRef
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,11 +11,11 @@ from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework import status
 
-from recipes.models import Recipe, Tag, Ingredient, Subscription
+from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
+                            Cart)
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
-                          IngredientSerializer, SetPasswordSerializer,
-                          )
+                          IngredientSerializer, SetPasswordSerializer)
 
 User = get_user_model()
 
@@ -68,20 +68,24 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
 
     http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Recipe.objects.all().annotate(
+            is_favorited=Exists(Favorite.objects.filter(user=user, recipe__pk=OuterRef('pk'))),
+            # is_in_shopping_cart=(Cart.objects.filter(???))
+        )
+        # queryset = Recipe.objects.all()
+        return queryset
+
 
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
             return (permissions.AllowAny(),)
         return super().get_permissions()
-
-    # def get_serializer_class(self):
-    #     if self.action == 'create':
-    #         return RecipeCreateSerializer
-    #     return super().get_serializer_class()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

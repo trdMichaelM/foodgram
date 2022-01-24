@@ -6,7 +6,7 @@ from .views import (UserViewSet, RecipeViewSet, TagReadOnlyModelViewSet,
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
-router.register(r'recipes', RecipeViewSet)
+router.register(r'recipes', RecipeViewSet, basename='recipes')
 router.register(r'tags', TagReadOnlyModelViewSet)
 router.register(r'ingredients', IngredientReadOnlyModelViewSet)
 
