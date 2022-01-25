@@ -16,21 +16,32 @@ from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
                           IngredientSerializer, SetPasswordSerializer)
+from .permissions import IsOwnerPermission
 
 User = get_user_model()
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
-    # queryset = User.objects.all().annotate(is_subscribed=Value(True, output_field=BooleanField()))
-    # is_subscribed = Subscription.objects.filter()
-    # queryset = User.objects.all().annotate(is_subscribed=Exists())
-
     serializer_class = UserSerializer
 
     permission_classes = [permissions.IsAuthenticated]
 
     http_method_names = ['get', 'post']
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = User.objects.all().annotate(
+                is_subscribed=Exists(Subscription.objects.filter(
+                    user=user, author__pk=OuterRef('pk'))
+                )
+            )
+            return queryset
+
+        queryset = User.objects.all().annotate(
+            is_subscribed=Value(False, output_field=BooleanField())
+        )
+        return queryset
 
     def get_permissions(self):
         if self.action in ('create', 'list'):
@@ -74,17 +85,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Recipe.objects.all().annotate(
-            is_favorited=Exists(Favorite.objects.filter(user=user, recipe__pk=OuterRef('pk'))),
-            # is_in_shopping_cart=(Cart.objects.filter(???))
-        )
-        # queryset = Recipe.objects.all()
-        return queryset
+        if user.is_authenticated:
+            queryset = Recipe.objects.all().annotate(
+                is_favorited=Exists(Favorite.objects.filter(
+                    user=user, recipe__pk=OuterRef('pk'))
+                ),
+                is_in_shopping_cart=Exists(Cart.objects.filter(
+                    user=user, recipe__pk=OuterRef('pk'))
+                )
+            )
+            return queryset
 
+        queryset = Recipe.objects.all().annotate(
+            is_favorited=Value(False, output_field=BooleanField()),
+            is_in_shopping_cart=Value(False, output_field=BooleanField())
+        )
+        return queryset
 
     def get_permissions(self):
         if self.action in ('list', 'retrieve'):
             return (permissions.AllowAny(),)
+        elif self.action in ('partial_update', 'destroy'):
+            return (IsOwnerPermission(),)
         return super().get_permissions()
 
     def perform_create(self, serializer):

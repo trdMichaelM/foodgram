@@ -23,12 +23,20 @@ class Base64ImageField(serializers.ImageField):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    is_subscribed = serializers.BooleanField(read_only=True, default=False)
+    is_subscribed = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = User
         fields = ('email', 'id', 'username', 'first_name', 'last_name',
-                  'is_subscribed')
+                  'is_subscribed', 'password')
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User.objects.create(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -90,8 +98,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         queryset=IngredientInRecipe.objects.all()
     )
     is_favorited = serializers.BooleanField(read_only=True)
-    is_in_shopping_cart = serializers.BooleanField(read_only=True,
-                                                   default=False)
+    is_in_shopping_cart = serializers.BooleanField(read_only=True)
     image = Base64ImageField()
 
     class Meta:
@@ -112,8 +119,9 @@ class RecipeSerializer(serializers.ModelSerializer):
         for ingredient in ingredients:
             ingredient_id = ingredient['id']
             amount = ingredient['amount']
+            the_ingredient = get_object_or_404(Ingredient, id=ingredient_id)
             ingredient_in_recipe = IngredientInRecipe.objects.create(
-                ingredient=Ingredient.objects.get(id=ingredient_id),
+                ingredient=the_ingredient,
                 amount=amount
             )
             recipe.ingredients.add(ingredient_in_recipe)
