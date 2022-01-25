@@ -128,6 +128,31 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         return recipe
 
+    def update(self, instance, validated_data):
+        if 'tags' in self.validated_data:
+            tags = validated_data.pop('tags')
+            instance.tags.clear()
+            for tag in tags:
+                instance.tags.add(tag)
+
+        if 'ingredients' in self.validated_data:
+            ingredients = validated_data.pop('ingredients')
+            instance.ingredients.clear()
+            for ingredient in ingredients:
+                ingredient_id = ingredient['id']
+                amount = ingredient['amount']
+                the_ingredient = get_object_or_404(Ingredient,
+                                                   id=ingredient_id)
+                ingredient_in_recipe = IngredientInRecipe.objects.create(
+                    ingredient=the_ingredient,
+                    amount=amount
+                )
+                instance.ingredients.add(ingredient_in_recipe)
+
+        super().update(instance, validated_data)
+
+        return instance
+
 
 class SetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(max_length=150)
