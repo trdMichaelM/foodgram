@@ -5,8 +5,10 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 
-from recipes.models import Recipe, Tag, Ingredient, IngredientInRecipe
+from recipes.models import (Recipe, Tag, Ingredient, IngredientInRecipe,
+                            Favorite)
 
 User = get_user_model()
 
@@ -157,3 +159,31 @@ class RecipeSerializer(serializers.ModelSerializer):
 class SetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(max_length=150)
     current_password = serializers.CharField(max_length=150)
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='recipe.id', read_only=True)
+    name = serializers.CharField(source='recipe.name', read_only=True)
+    image = serializers.ImageField(source='recipe.image', read_only=True)
+    cooking_time = serializers.IntegerField(source='recipe.cooking_time',
+                                            read_only=True)
+
+    class Meta:
+        model = IngredientInRecipe
+        fields = ('id', 'name', 'image', 'cooking_time')
+
+    def validate(self, data):
+        user = self.context['request'].user
+        recipe_id = self.context['request'].parser_context['kwargs']['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+
+        if Favorite.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(
+                f'Recipe already favorite with current user!'
+            )
+        return data
+
+    def create(self, validated_data):
+        user = validated_data.get('user')
+        recipe = validated_data.get('recipe')
+        return Favorite.objects.create(user=user, recipe=recipe)

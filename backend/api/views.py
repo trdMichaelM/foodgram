@@ -4,18 +4,21 @@ from django.core.exceptions import (ValidationError as
                                     ValidationErrorFromDjangoCore)
 from django.contrib.auth.hashers import check_password
 from django.db.models import BooleanField, Value, Exists, OuterRef
+from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework import status
+from rest_framework import mixins
 
 from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
                             Cart)
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
-                          IngredientSerializer, SetPasswordSerializer)
+                          IngredientSerializer, SetPasswordSerializer,
+                          FavoriteSerializer)
 from .permissions import IsOwnerPermission
 
 User = get_user_model()
@@ -127,3 +130,32 @@ class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
 
     permission_classes = [permissions.AllowAny]
+
+
+class CreateDestroyViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
+                           viewsets.GenericViewSet):
+    pass
+
+
+class FavoriteViewSet(CreateDestroyViewSet):
+    serializer_class = FavoriteSerializer
+    queryset = Favorite.objects.all()
+
+    http_method_names = ['post', 'delete']
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        recipe_id = self.kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        serializer.save(user=self.request.user, recipe=recipe)
+
+    def destroy(self, request, *args, **kwargs):
+        recipe_id = kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        user = self.request.user
+        favorite_object = get_object_or_404(Favorite, user=user, recipe=recipe)
+        super().perform_destroy(favorite_object)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
