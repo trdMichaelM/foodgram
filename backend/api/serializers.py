@@ -5,10 +5,9 @@ from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
 
 from recipes.models import (Recipe, Tag, Ingredient, IngredientInRecipe,
-                            Favorite)
+                            Favorite, Subscription)
 
 User = get_user_model()
 
@@ -187,3 +186,53 @@ class FavoriteSerializer(serializers.ModelSerializer):
         user = validated_data.get('user')
         recipe = validated_data.get('recipe')
         return Favorite.objects.create(user=user, recipe=recipe)
+
+
+class SubscriptionRecipeSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    name = serializers.CharField(read_only=True)
+    image = serializers.ImageField(read_only=True)
+    cooking_time = serializers.IntegerField(read_only=True)
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    email = serializers.CharField(source='author.email', read_only=True)
+    id = serializers.CharField(source='author.id', read_only=True)
+    username = serializers.CharField(source='author.username', read_only=True)
+    first_name = serializers.CharField(source='author.first_name',
+                                       read_only=True)
+    last_name = serializers.CharField(source='author.last_name',
+                                      read_only=True)
+    is_subscribed = serializers.BooleanField(read_only=True)
+    recipes = SubscriptionRecipeSerializer(source='author.recipes', many=True,
+                                           read_only=True)
+    recipes_count = serializers.IntegerField(source='author.recipes.count',
+                                             read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = ['email', 'id', 'username', 'first_name', 'last_name',
+                  'is_subscribed', 'recipes', 'recipes_count']
+
+    def validate(self, data):
+        user = self.context['request'].user
+        author_id = self.context['request'].parser_context['kwargs']['id']
+        author = get_object_or_404(User, id=author_id)
+
+        if user == author:
+            raise serializers.ValidationError(
+                f'Cannot subscribe yourself!'
+            )
+
+        if Subscription.objects.filter(user=user, author=author).exists():
+            raise serializers.ValidationError(
+                f'Already subscribe with author!'
+            )
+        return data
+
+    def create(self, validated_data):
+        user = validated_data.get('user')
+        author = validated_data.get('author')
+        subscription = Subscription.objects.create(user=user, author=author)
+        subscription.is_subscribed = True
+        return subscription

@@ -18,7 +18,7 @@ from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
                           IngredientSerializer, SetPasswordSerializer,
-                          FavoriteSerializer)
+                          FavoriteSerializer, SubscriptionSerializer)
 from .permissions import IsOwnerPermission
 
 User = get_user_model()
@@ -159,3 +159,51 @@ class FavoriteViewSet(CreateDestroyViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ListCreateDestroyViewSet(mixins.ListModelMixin,
+                               mixins.CreateModelMixin,
+                               mixins.DestroyModelMixin,
+                               viewsets.GenericViewSet):
+    pass
+
+
+class ListViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    pass
+
+
+class SubscriptionListViewSet(ListViewSet):
+    serializer_class = SubscriptionSerializer
+
+    http_method_names = ['get']
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = user.subscriptions.all().annotate(
+            is_subscribed=Exists(Subscription.objects.filter(
+                user=user, author__pk=OuterRef('author_id'))
+            )
+        )
+        return queryset
+
+
+class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
+    serializer_class = SubscriptionSerializer
+
+    http_method_names = ['post', 'delete']
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        author_id = self.kwargs['id']
+        author = get_object_or_404(User, id=author_id)
+        serializer.save(user=self.request.user, author=author)
+
+    def destroy(self, request, *args, **kwargs):
+        author_id = kwargs['id']
+        author = get_object_or_404(User, id=author_id)
+        user = self.request.user
+        subscription = get_object_or_404(Subscription, user=user,
+                                         author=author)
+        super().perform_destroy(subscription)
+        return Response(status=status.HTTP_204_NO_CONTENT)
