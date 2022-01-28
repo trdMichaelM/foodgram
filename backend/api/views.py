@@ -1,3 +1,10 @@
+from collections import defaultdict
+
+from xhtml2pdf import pisa
+
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from django.utils.six import BytesIO
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import (ValidationError as
@@ -18,10 +25,21 @@ from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
                           IngredientSerializer, SetPasswordSerializer,
-                          FavoriteSerializer, SubscriptionSerializer)
+                          FavoriteSerializer, SubscriptionSerializer,
+                          CartSerializer)
 from .permissions import IsOwnerPermission
+from .utils import fetch_resources
 
 User = get_user_model()
+
+
+class ListViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    pass
+
+
+class CreateDestroyViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
+                           viewsets.GenericViewSet):
+    pass
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -132,11 +150,6 @@ class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
 
 
-class CreateDestroyViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
-                           viewsets.GenericViewSet):
-    pass
-
-
 class FavoriteViewSet(CreateDestroyViewSet):
     serializer_class = FavoriteSerializer
     queryset = Favorite.objects.all()
@@ -157,17 +170,6 @@ class FavoriteViewSet(CreateDestroyViewSet):
         favorite_object = get_object_or_404(Favorite, user=user, recipe=recipe)
         super().perform_destroy(favorite_object)
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class ListCreateDestroyViewSet(mixins.ListModelMixin,
-                               mixins.CreateModelMixin,
-                               mixins.DestroyModelMixin,
-                               viewsets.GenericViewSet):
-    pass
-
-
-class ListViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    pass
 
 
 class SubscriptionListViewSet(ListViewSet):
@@ -206,4 +208,58 @@ class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
         subscription = get_object_or_404(Subscription, user=user,
                                          author=author)
         super().perform_destroy(subscription)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CartListViewSet(ListViewSet):
+    http_method_names = ['get']
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        purchases = user.purchases.all()
+        cart = defaultdict(int)
+        for purchase in purchases:
+            ingredients_in_recipe = purchase.recipe.ingredients.all()
+            for ingredient_in_recipe in ingredients_in_recipe:
+                amount = ingredient_in_recipe.amount
+                ingredient = ingredient_in_recipe.ingredient.name
+                measurement_unit = ingredient_in_recipe.ingredient.measurement_unit
+                cart[f'{ingredient} ({measurement_unit})'] += amount
+
+        shopping_list = [f'{key} - {value}\n' for key, value in cart.items()]
+
+        template = 'shopping_list.html'
+        context = {'pagesize': 'A4', 'shopping_list': shopping_list}
+        html = render_to_string(template, context)
+        src = BytesIO(html.encode('utf-8'))
+        dest = BytesIO()
+        pisa.pisaDocument(src, dest, encoding='UTF-8',
+                          link_callback=fetch_resources)
+        response = HttpResponse(dest.getvalue(),
+                                content_type='application/pdf')
+        response['Content-Disposition'] = ('attachment; '
+                                           'filename="Shopping List.pdf"')
+        return response
+
+
+class CartCreateDestroyViewSet(CreateDestroyViewSet):
+    serializer_class = CartSerializer
+
+    http_method_names = ['post', 'delete']
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        recipe_id = self.kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        serializer.save(user=self.request.user, recipe=recipe)
+
+    def destroy(self, request, *args, **kwargs):
+        recipe_id = kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        user = self.request.user
+        cart = get_object_or_404(Cart, user=user, recipe=recipe)
+        super().perform_destroy(cart)
         return Response(status=status.HTTP_204_NO_CONTENT)

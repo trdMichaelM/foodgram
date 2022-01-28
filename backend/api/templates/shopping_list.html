@@ -1,0 +1,40 @@
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <title>Shopping List</title>
+        <style type="text/css">
+            @page {
+                size: {{ pagesize }};
+                margin: 1cm;
+                @frame footer {
+                    -pdf-frame-content: footerContent;
+                    bottom: 0cm;
+                    margin-left: 9cm;
+                    margin-right: 9cm;
+                    height: 1cm;
+                }
+            }
+            @font-face { font-family: Arial; src: url(fonts/arial.ttf); }
+            body { font-family: Arial, sans-serif; color: black; font-size: 21px;}
+            ul {
+                   padding-left: 40px;
+                   margin-top: 1em;
+                   margin-bottom: 1em;
+                }
+        </style>
+    </head>
+    <body>
+        <div>
+            <ul>
+                {% for item in shopping_list %}
+                    <li>{{ item }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div id="footerContent">
+            {%block page_foot%}
+                Page <pdf:pagenumber>
+            {%endblock%}
+        </div>
+    </body>
+</html>
