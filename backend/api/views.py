@@ -12,9 +12,11 @@ from django.core.exceptions import (ValidationError as
 from django.contrib.auth.hashers import check_password
 from django.db.models import BooleanField, Value, Exists, OuterRef
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework import filters
 from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework import status
@@ -22,6 +24,10 @@ from rest_framework import mixins
 
 from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
                             Cart)
+
+from .filters import RecipeFilter
+
+from .pagination import FoodgramPagination, SubscriptionPagination
 
 from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
                           IngredientSerializer, SetPasswordSerializer,
@@ -46,6 +52,8 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     permission_classes = [permissions.IsAuthenticated]
+
+    pagination_class = FoodgramPagination
 
     http_method_names = ['get', 'post']
 
@@ -106,6 +114,11 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    pagination_class = FoodgramPagination
+
+    filter_backends = [DjangoFilterBackend, ]
+    filterset_class = RecipeFilter
+
     def get_queryset(self):
         user = self.request.user
         if user.is_authenticated:
@@ -149,6 +162,10 @@ class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
 
     permission_classes = [permissions.AllowAny]
 
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter,)
+    search_fields = ('^name', 'name')
+    ordering_fields = ('^name', 'name')
+
 
 class FavoriteViewSet(CreateDestroyViewSet):
     serializer_class = FavoriteSerializer
@@ -178,6 +195,8 @@ class SubscriptionListViewSet(ListViewSet):
     http_method_names = ['get']
 
     permission_classes = [permissions.IsAuthenticated]
+
+    pagination_class = SubscriptionPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -225,7 +244,7 @@ class CartListViewSet(ListViewSet):
             for ingredient_in_recipe in ingredients_in_recipe:
                 amount = ingredient_in_recipe.amount
                 ingredient = ingredient_in_recipe.ingredient.name
-                measurement_unit = ingredient_in_recipe.ingredient.measurement_unit
+                measurement_unit = ingredient_in_recipe.ingredient.measurement_unit  # noqa
                 cart[f'{ingredient} ({measurement_unit})'] += amount
 
         shopping_list = [f'{key} - {value}\n' for key, value in cart.items()]

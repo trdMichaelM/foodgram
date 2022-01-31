@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'recipes',
     'api',
     'rest_framework',
+    'django_filters',
     'rest_framework.authtoken',
     'djoser',
 ]
@@ -130,8 +131,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = '/static-backend/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static-backend')
 
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
@@ -144,14 +145,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],
-
-    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    #
-    # 'PAGE_SIZE': 5,
 }
 
 DJOSER = {
