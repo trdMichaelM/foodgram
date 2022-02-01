@@ -72,6 +72,9 @@ class Favorite(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='favorites')
 
+    def __str__(self):
+        return f'{self.user.username} - {self.recipe.name}'
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -87,6 +90,9 @@ class Cart(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
                                related_name='buyers')
 
+    def __str__(self):
+        return f'{self.user.username} - {self.recipe.name}'
+
     class Mete:
         constraints = [
             models.UniqueConstraint(
@@ -101,6 +107,9 @@ class Subscription(models.Model):
                              related_name='subscriptions')
     author = models.ForeignKey(User, on_delete=models.CASCADE,
                                related_name='subscribers')
+
+    def __str__(self):
+        return f'{self.user.username} - {self.author.username}'
 
     class Meta:
         constraints = [
