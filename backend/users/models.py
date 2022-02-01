@@ -10,3 +10,5 @@ class User(AbstractUser):
 
     class Meta:
         ordering = ['pk']
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
