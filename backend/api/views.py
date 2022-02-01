@@ -10,7 +10,6 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import (ValidationError as
                                     ValidationErrorFromDjangoCore)
 from django.contrib.auth.hashers import check_password
-from django.db.models import BooleanField, Value, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.exceptions import ValidationError
@@ -26,10 +25,9 @@ from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
                             Cart)
 
 from .filters import RecipeFilter
-
 from .pagination import FoodgramPagination, SubscriptionPagination
-
-from .serializers import (UserSerializer, RecipeSerializer, TagSerializer,
+from .serializers import (UserSerializer, UserCreateSerializer,
+                          RecipeSerializer, TagSerializer,
                           IngredientSerializer, SetPasswordSerializer,
                           FavoriteSerializer, SubscriptionSerializer,
                           CartSerializer)
@@ -49,27 +47,17 @@ class CreateDestroyViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    serializer_class = UserSerializer
-
     permission_classes = [permissions.IsAuthenticated]
-
     pagination_class = FoodgramPagination
-
     http_method_names = ['get', 'post']
 
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated:
-            queryset = User.objects.all().annotate(
-                is_subscribed=Exists(Subscription.objects.filter(
-                    user=user, author__pk=OuterRef('pk'))
-                )
-            )
-            return queryset
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return UserCreateSerializer
+        return UserSerializer
 
-        queryset = User.objects.all().annotate(
-            is_subscribed=Value(False, output_field=BooleanField())
-        )
+    def get_queryset(self):
+        queryset = User.objects.all()
         return queryset
 
     def get_permissions(self):
@@ -109,33 +97,14 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
-
     http_method_names = ['get', 'post', 'patch', 'delete']
-
     permission_classes = [permissions.IsAuthenticated]
-
     pagination_class = FoodgramPagination
-
     filter_backends = [DjangoFilterBackend, ]
     filterset_class = RecipeFilter
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated:
-            queryset = Recipe.objects.all().annotate(
-                is_favorited=Exists(Favorite.objects.filter(
-                    user=user, recipe__pk=OuterRef('pk'))
-                ),
-                is_in_shopping_cart=Exists(Cart.objects.filter(
-                    user=user, recipe__pk=OuterRef('pk'))
-                )
-            )
-            return queryset
-
-        queryset = Recipe.objects.all().annotate(
-            is_favorited=Value(False, output_field=BooleanField()),
-            is_in_shopping_cart=Value(False, output_field=BooleanField())
-        )
+        queryset = Recipe.objects.all()
         return queryset
 
     def get_permissions(self):
@@ -152,16 +121,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
 class TagReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-
     permission_classes = [permissions.AllowAny]
 
 
 class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-
     permission_classes = [permissions.AllowAny]
-
     filter_backends = (filters.SearchFilter, filters.OrderingFilter,)
     search_fields = ('^name', 'name')
     ordering_fields = ('^name', 'name')
@@ -170,9 +136,7 @@ class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
 class FavoriteViewSet(CreateDestroyViewSet):
     serializer_class = FavoriteSerializer
     queryset = Favorite.objects.all()
-
     http_method_names = ['post', 'delete']
-
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -191,28 +155,19 @@ class FavoriteViewSet(CreateDestroyViewSet):
 
 class SubscriptionListViewSet(ListViewSet):
     serializer_class = SubscriptionSerializer
-
     http_method_names = ['get']
-
     permission_classes = [permissions.IsAuthenticated]
-
     pagination_class = SubscriptionPagination
 
     def get_queryset(self):
         user = self.request.user
-        queryset = user.subscriptions.all().annotate(
-            is_subscribed=Exists(Subscription.objects.filter(
-                user=user, author__pk=OuterRef('author_id'))
-            )
-        )
+        queryset = user.subscriptions.all()
         return queryset
 
 
 class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
     serializer_class = SubscriptionSerializer
-
     http_method_names = ['post', 'delete']
-
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
@@ -232,7 +187,6 @@ class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
 
 class CartListViewSet(ListViewSet):
     http_method_names = ['get']
-
     permission_classes = [permissions.IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
@@ -265,9 +219,7 @@ class CartListViewSet(ListViewSet):
 
 class CartCreateDestroyViewSet(CreateDestroyViewSet):
     serializer_class = CartSerializer
-
     http_method_names = ['post', 'delete']
-
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):

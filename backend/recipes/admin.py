@@ -4,13 +4,6 @@ from .models import (Recipe, Tag, Ingredient, IngredientInRecipe, Favorite,
                      Cart, Subscription)
 
 
-# class UserAdmin(admin.ModelAdmin):
-#     list_display = ('username', 'first_name', 'last_name', 'email')
-#     search_fields = ('email', 'username')
-#     list_filter = ('email', 'username')
-#     empty_value_display = '-empty-'
-
-
 class RecipeAdmin(admin.ModelAdmin):
     list_display = ('name', 'author')
     list_filter = ('author', 'name', 'tags')
@@ -18,8 +11,8 @@ class RecipeAdmin(admin.ModelAdmin):
               'cooking_time', 'count_favorite')
     readonly_fields = ('count_favorite',)
 
-    def count_favorite(self, object):
-        return object.favorites.count()
+    def count_favorite(self, obj):
+        return obj.favorites.count()
 
 
 class IngredientAdmin(admin.ModelAdmin):
