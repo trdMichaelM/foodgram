@@ -33,8 +33,8 @@ class Ingredient(models.Model):
 
 
 class IngredientInRecipe(models.Model):
-    ingredient = models.ForeignKey(_('ingredient'), Ingredient,
-                                   on_delete=models.CASCADE)
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE,
+                                   verbose_name=_('ingredient'))
     amount = models.IntegerField(_('amount'), default=1)
 
     def __str__(self):
@@ -48,15 +48,18 @@ class IngredientInRecipe(models.Model):
 
 
 class Recipe(models.Model):
-    author = models.ForeignKey(_('author'), User, on_delete=models.CASCADE,
-                               related_name='recipes')
+    author = models.ForeignKey(User, on_delete=models.CASCADE,
+                               related_name='recipes',
+                               verbose_name=_('author'))
     pub_date = models.DateTimeField(_('date published'), auto_now_add=True)
     name = models.CharField(_('name'), max_length=200)
     image = models.ImageField(_('image'), upload_to='images/')
     text = models.TextField(_('description'))
-    ingredients = models.ManyToManyField(_('ingredients'), IngredientInRecipe,
-                                         related_name='recipes')
-    tags = models.ManyToManyField(_('tags'), Tag, related_name='recipes')
+    ingredients = models.ManyToManyField(IngredientInRecipe,
+                                         related_name='recipes',
+                                         verbose_name=_('ingredients'))
+    tags = models.ManyToManyField(Tag, related_name='recipes',
+                                  verbose_name=_('tags'))
     cooking_time = models.PositiveSmallIntegerField(_('cooking time'))
 
     def __str__(self):
@@ -69,10 +72,12 @@ class Recipe(models.Model):
 
 
 class Favorite(models.Model):
-    user = models.ForeignKey(_('user'), User, on_delete=models.CASCADE,
-                             related_name='favorites')
-    recipe = models.ForeignKey(_('recipe'), Recipe, on_delete=models.CASCADE,
-                               related_name='favorites')
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name='favorites',
+                             verbose_name=_('user'))
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
+                               related_name='favorites',
+                               verbose_name=_('recipe'))
 
     def __str__(self):
         return f'{self.user.username} - {self.recipe.name}'
@@ -89,10 +94,12 @@ class Favorite(models.Model):
 
 
 class Cart(models.Model):
-    user = models.ForeignKey(_('user'), User, on_delete=models.CASCADE,
-                             related_name='purchases')
-    recipe = models.ForeignKey(_('recipe'), Recipe, on_delete=models.CASCADE,
-                               related_name='buyers')
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name='purchases',
+                             verbose_name=_('user'))
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
+                               related_name='buyers',
+                               verbose_name=_('recipe'))
 
     def __str__(self):
         return f'{self.user.username} - {self.recipe.name}'
@@ -109,10 +116,12 @@ class Cart(models.Model):
 
 
 class Subscription(models.Model):
-    user = models.ForeignKey(_('user'), User, on_delete=models.CASCADE,
-                             related_name='subscriptions')
-    author = models.ForeignKey(_('author'), User, on_delete=models.CASCADE,
-                               related_name='subscribers')
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name='subscriptions',
+                             verbose_name=_('user'))
+    author = models.ForeignKey(User, on_delete=models.CASCADE,
+                               related_name='subscribers',
+                               verbose_name=_('author'))
 
     def __str__(self):
         return f'{self.user.username} - {self.author.username}'
