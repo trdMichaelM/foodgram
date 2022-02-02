@@ -162,6 +162,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
         if 'ingredients' in self.validated_data:
             ingredients = validated_data.pop('ingredients')
+            instance.ingredients.all().delete()
             instance.ingredients.clear()
             for ingredient in ingredients:
                 ingredient_id = ingredient['id']

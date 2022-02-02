@@ -24,7 +24,7 @@ from rest_framework import mixins
 from recipes.models import (Recipe, Tag, Ingredient, Subscription, Favorite,
                             Cart)
 
-from .filters import RecipeFilter
+from .filters import RecipeFilter, IngredientSearchFilter
 from .pagination import FoodgramPagination, SubscriptionPagination
 from .serializers import (UserSerializer, UserCreateSerializer,
                           RecipeSerializer, TagSerializer,
@@ -128,9 +128,8 @@ class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = [permissions.AllowAny]
-    filter_backends = (filters.SearchFilter, filters.OrderingFilter,)
-    search_fields = ('^name', 'name')
-    ordering_fields = ('^name', 'name')
+    filter_backends = [IngredientSearchFilter]
+    search_fields = ('^name',)
 
 
 class FavoriteViewSet(CreateDestroyViewSet):
