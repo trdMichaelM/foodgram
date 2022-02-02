@@ -1,5 +1,6 @@
 """
 Examples: python manage.py importcsv --path "/home/michael/dev/foodgram-project-react/data/ingredients.csv" --model_name "recipes.Ingredient"
+          python manage.py importcsv --path "../data/ingredients.csv" --model_name "recipes.Ingredient"
 """
 import csv
 
