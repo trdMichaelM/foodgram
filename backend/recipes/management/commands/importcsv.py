@@ -1,6 +1,7 @@
 """
 Examples: python manage.py importcsv --path "/home/michael/dev/foodgram-project-react/data/ingredients.csv" --model_name "recipes.Ingredient"
-          python manage.py importcsv --path "../data/ingredients.csv" --model_name "recipes.Ingredient"
+          python manage.py importcsv --path "data/ingredients.csv" --model_name "recipes.Ingredient"
+          python manage.py importcsv --path "data/tags.csv" --model_name "recipes.Tag"
 """
 import csv
 
@@ -17,9 +18,6 @@ class Command(BaseCommand):
         parser.add_argument('--model_name', type=str, help="model name")
 
     def handle(self, *args, **options):
-        # А зачем портянкой трейсбэка пользователей пугать,
-        # а так всё культурно, прога падает и больше не выполняется
-        # а мы видим ошибку
         file_path = options['path']
 
         try:

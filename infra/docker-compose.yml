@@ -9,12 +9,12 @@ services:
 
   web:
     build:
-      context: ../
+      context: ../backend
       dockerfile: Dockerfile
     restart: always
     volumes:
-      - static_value:/foodgram/backend/static-backend/
-      - media_value:/foodgram/backend/media/
+      - static_value:/backend/static-backend/
+      - media_value:/backend/media/
     depends_on:
       - db
     env_file:
