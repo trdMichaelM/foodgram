@@ -13,8 +13,8 @@ services:
       dockerfile: Dockerfile
     restart: always
     volumes:
-      - static_value:/foodgram/backend/static-backend
-      - media_value:/foodgram/backend/media
+      - static_value:/foodgram/backend/static-backend/
+      - media_value:/foodgram/backend/media/
     depends_on:
       - db
     env_file:
@@ -25,11 +25,11 @@ services:
     ports:
       - "80:80"
     volumes:
+      - media_value:/var/html/media/
+      - static_value:/var/html/static-backend/
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - ../frontend/build:/usr/share/nginx/html/
       - ../docs/:/usr/share/nginx/html/api/docs/
-      - static_value:/var/html/static-backend/
-      - media_value:/var/html/media/
     depends_on:
       - web
 
