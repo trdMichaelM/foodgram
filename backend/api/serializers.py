@@ -78,39 +78,10 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
-class TagRelatedField(serializers.RelatedField):
-    def to_representation(self, value):
-        serializer = TagSerializer(value)
-        return serializer.data
-
-    def to_internal_value(self, data):
-        tag = get_object_or_404(Tag, id=data)
-        return tag
-
-
-class IngredientInRecipeCreateSerializer(serializers.Serializer):
-    """Вспомогательный сериалайзер для IngredientInRecipeRelatedField."""
-    id = serializers.IntegerField()
-    amount = serializers.IntegerField()
-
-
-class IngredientInRecipeRelatedField(serializers.RelatedField):
-    def to_representation(self, value):
-        serializer = IngredientInRecipeSerializer(value)
-        return serializer.data
-
-    def to_internal_value(self, data):
-        serializer = IngredientInRecipeCreateSerializer(data)
-        return serializer.data
-
-
 class RecipeSerializer(serializers.ModelSerializer):
     author = UserSerializer(read_only=True)
-    tags = TagRelatedField(many=True, queryset=Tag.objects.all())
-    ingredients = IngredientInRecipeRelatedField(
-        many=True,
-        queryset=IngredientInRecipe.objects.all()
-    )
+    tags = TagSerializer(many=True, read_only=True)
+    ingredients = IngredientInRecipeSerializer(many=True, read_only=True)
     is_favorited = serializers.SerializerMethodField()
     is_in_shopping_cart = serializers.SerializerMethodField()
     image = Base64ImageField()
@@ -134,11 +105,12 @@ class RecipeSerializer(serializers.ModelSerializer):
         return False
 
     def create(self, validated_data):
-        tags = validated_data.pop('tags')
-        ingredients = validated_data.pop('ingredients')
+        tags = self.initial_data.get("tags")
+        ingredients = self.initial_data.get("ingredients")
         recipe = Recipe.objects.create(**validated_data)
 
-        for tag in tags:
+        for tag_id in tags:
+            tag = get_object_or_404(Tag, id=tag_id)
             recipe.tags.add(tag)
 
         for ingredient in ingredients:
@@ -154,14 +126,15 @@ class RecipeSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
-        if 'tags' in self.validated_data:
-            tags = validated_data.pop('tags')
+        if "tags" in self.initial_data:
+            tags = self.initial_data.get("tags")
             instance.tags.clear()
-            for tag in tags:
+            for tag_id in tags:
+                tag = get_object_or_404(Tag, id=tag_id)
                 instance.tags.add(tag)
 
-        if 'ingredients' in self.validated_data:
-            ingredients = validated_data.pop('ingredients')
+        if 'ingredients' in self.initial_data:
+            ingredients = self.initial_data.get("ingredients")
             instance.ingredients.all().delete()
             instance.ingredients.clear()
             for ingredient in ingredients:
@@ -175,9 +148,7 @@ class RecipeSerializer(serializers.ModelSerializer):
                 )
                 instance.ingredients.add(ingredient_in_recipe)
 
-        super().update(instance, validated_data)
-
-        return instance
+        return super().update(instance, validated_data)
 
 
 class SetPasswordSerializer(serializers.Serializer):

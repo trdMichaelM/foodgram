@@ -3,7 +3,7 @@ from django.urls import include, path
 from .views import (UserViewSet, RecipeViewSet, TagReadOnlyModelViewSet,
                     IngredientReadOnlyModelViewSet, FavoriteViewSet,
                     SubscriptionCreateDestroyViewSet, SubscriptionListViewSet,
-                    CartListViewSet, CartCreateDestroyViewSet)
+                    CartCreateDestroyViewSet)
 from .routers import FoodgramRouter
 
 router = FoodgramRouter()
@@ -12,13 +12,11 @@ router.register(r'users/subscriptions', SubscriptionListViewSet,
 router.register(r'users/(?P<id>\d+)/subscribe',
                 SubscriptionCreateDestroyViewSet,
                 basename='subscriptions-detail')
-router.register(r'recipes/download_shopping_cart', CartListViewSet,
-                basename='download_shopping_cart')
 router.register(r'recipes/(?P<id>\d+)/favorite', FavoriteViewSet)
 router.register(r'recipes/(?P<id>\d+)/shopping_cart', CartCreateDestroyViewSet,
                 basename='cart-detail')
-router.register(r'users', UserViewSet, basename='users')
-router.register(r'recipes', RecipeViewSet, basename='recipes')
+router.register(r'users', UserViewSet)
+router.register(r'recipes', RecipeViewSet)
 router.register(r'tags', TagReadOnlyModelViewSet)
 router.register(r'ingredients', IngredientReadOnlyModelViewSet)
 

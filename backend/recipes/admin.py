@@ -25,26 +25,10 @@ class TagAdmin(admin.ModelAdmin):
     list_display = ('name', 'color', 'slug')
 
 
-class IngredientInRecipeAdmin(admin.ModelAdmin):
-    pass
-
-
-class FavoriteAdmin(admin.ModelAdmin):
-    pass
-
-
-class CartAdmin(admin.ModelAdmin):
-    pass
-
-
-class SubscriptionAdmin(admin.ModelAdmin):
-    pass
-
-
 admin.site.register(Recipe, RecipeAdmin)
 admin.site.register(Ingredient, IngredientAdmin)
 admin.site.register(Tag, TagAdmin)
-admin.site.register(IngredientInRecipe, IngredientInRecipeAdmin)
-admin.site.register(Favorite, FavoriteAdmin)
-admin.site.register(Cart, CartAdmin)
-admin.site.register(Subscription, SubscriptionAdmin)
+admin.site.register(IngredientInRecipe, admin.ModelAdmin)
+admin.site.register(Favorite, admin.ModelAdmin)
+admin.site.register(Cart, admin.ModelAdmin)
+admin.site.register(Subscription, admin.ModelAdmin)

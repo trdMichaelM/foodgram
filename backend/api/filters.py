@@ -14,6 +14,10 @@ class RecipeFilter(rest_framework.FilterSet):
                                                     to_field_name='slug',
                                                     queryset=Tag.objects.all())
 
+    class Meta:
+        model = Recipe
+        fields = ['is_favorited', 'is_in_shopping_cart', 'author', 'tags']
+
     def filter_is_favorited(self, queryset, name, value):
         user = self.request.user
         if value and user.is_authenticated:
@@ -25,10 +29,6 @@ class RecipeFilter(rest_framework.FilterSet):
         if value and user.is_authenticated:
             return queryset.filter(buyers__user=user)
         return queryset
-
-    class Meta:
-        model = Recipe
-        fields = ['is_favorited', 'is_in_shopping_cart', 'author', 'tags']
 
 
 class IngredientSearchFilter(filters.SearchFilter):

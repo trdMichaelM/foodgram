@@ -31,7 +31,7 @@ from .serializers import (UserSerializer, UserCreateSerializer,
                           IngredientSerializer, SetPasswordSerializer,
                           FavoriteSerializer, SubscriptionSerializer,
                           CartSerializer)
-from .permissions import IsOwnerPermission
+from .permissions import IsOwnerPermission, ReadOnlyPermission
 from .utils import fetch_resources
 
 User = get_user_model()
@@ -46,22 +46,27 @@ class CreateDestroyViewSet(mixins.CreateModelMixin, mixins.DestroyModelMixin,
     pass
 
 
-class UserViewSet(viewsets.ModelViewSet):
+class CreateListRetrieveViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
+                                mixins.RetrieveModelMixin,
+                                viewsets.GenericViewSet):
+    pass
+
+
+class UserViewSet(CreateListRetrieveViewSet):
+    queryset = User.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = FoodgramPagination
-    http_method_names = ['get', 'post']
 
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
         return UserSerializer
 
-    def get_queryset(self):
-        queryset = User.objects.all()
-        return queryset
-
     def get_permissions(self):
         if self.action in ('create', 'list'):
+            # Неавторизованный пользователь может регистрироваться направляя
+            # post запрос на эндпоинт http://localhost/api/users/
+            # Также может просматривать список пользователей, get тудаже
             return (permissions.AllowAny(),)
         return super().get_permissions()
 
@@ -84,6 +89,11 @@ class UserViewSet(viewsets.ModelViewSet):
             raise ValidationError('Current password is wrong!')
         try:
             validate_password(new_password, user)
+        # ValidationError есть и в джанго и в дрф в конкретном случае мы
+        # обрабатывает ValidationError из джанго
+        # from django.core.exceptions import (ValidationError as
+        #                                     ValidationErrorFromDjangoCore)
+        # я тоже долго ее отлавливал потому что ловил из дрф :)
         except ValidationErrorFromDjangoCore as err:
             raise ValidationError(err)
         if current_password == new_password:
@@ -97,100 +107,25 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
-    http_method_names = ['get', 'post', 'patch', 'delete']
-    permission_classes = [permissions.IsAuthenticated]
+    queryset = Recipe.objects.all()
+    permission_classes = [ReadOnlyPermission | IsOwnerPermission]
     pagination_class = FoodgramPagination
-    filter_backends = [DjangoFilterBackend, ]
+    filter_backends = [DjangoFilterBackend]
     filterset_class = RecipeFilter
-
-    def get_queryset(self):
-        queryset = Recipe.objects.all()
-        return queryset
-
-    def get_permissions(self):
-        if self.action in ('list', 'retrieve'):
-            return (permissions.AllowAny(),)
-        elif self.action in ('partial_update', 'destroy'):
-            return (IsOwnerPermission(),)
-        return super().get_permissions()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
+    def perform_destroy(self, instance):
+        instance.ingredients.all().delete()
+        instance.delete()
 
-class TagReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Tag.objects.all()
-    serializer_class = TagSerializer
-    permission_classes = [permissions.AllowAny]
-
-
-class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Ingredient.objects.all()
-    serializer_class = IngredientSerializer
-    permission_classes = [permissions.AllowAny]
-    filter_backends = [IngredientSearchFilter]
-    search_fields = ('^name',)
-
-
-class FavoriteViewSet(CreateDestroyViewSet):
-    serializer_class = FavoriteSerializer
-    queryset = Favorite.objects.all()
-    http_method_names = ['post', 'delete']
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        recipe_id = self.kwargs['id']
-        recipe = get_object_or_404(Recipe, id=recipe_id)
-        serializer.save(user=self.request.user, recipe=recipe)
-
-    def destroy(self, request, *args, **kwargs):
-        recipe_id = kwargs['id']
-        recipe = get_object_or_404(Recipe, id=recipe_id)
-        user = self.request.user
-        favorite_object = get_object_or_404(Favorite, user=user, recipe=recipe)
-        super().perform_destroy(favorite_object)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class SubscriptionListViewSet(ListViewSet):
-    serializer_class = SubscriptionSerializer
-    http_method_names = ['get']
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = SubscriptionPagination
-
-    def get_queryset(self):
-        user = self.request.user
-        queryset = user.subscriptions.all()
-        return queryset
-
-
-class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
-    serializer_class = SubscriptionSerializer
-    http_method_names = ['post', 'delete']
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        author_id = self.kwargs['id']
-        author = get_object_or_404(User, id=author_id)
-        serializer.save(user=self.request.user, author=author)
-
-    def destroy(self, request, *args, **kwargs):
-        author_id = kwargs['id']
-        author = get_object_or_404(User, id=author_id)
-        user = self.request.user
-        subscription = get_object_or_404(Subscription, user=user,
-                                         author=author)
-        super().perform_destroy(subscription)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class CartListViewSet(ListViewSet):
-    http_method_names = ['get']
-    permission_classes = [permissions.IsAuthenticated]
-
-    def list(self, request, *args, **kwargs):
+    @action(methods=['get'], detail=False,
+            permission_classes=[permissions.IsAuthenticated])
+    def download_shopping_cart(self, request):
         user = request.user
-        purchases = user.purchases.all()
+        purchases = user.purchases.select_related('recipe').prefetch_related(
+            'recipe__ingredients').all()
         cart = defaultdict(int)
         for purchase in purchases:
             ingredients_in_recipe = purchase.recipe.ingredients.all()
@@ -216,9 +151,72 @@ class CartListViewSet(ListViewSet):
         return response
 
 
+class TagReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Tag.objects.all()
+    serializer_class = TagSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class IngredientReadOnlyModelViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Ingredient.objects.all()
+    serializer_class = IngredientSerializer
+    permission_classes = [permissions.AllowAny]
+    filter_backends = [IngredientSearchFilter, filters.OrderingFilter]
+    search_fields = ('^name', 'name')
+    ordering_fields = ('^name', 'name')
+
+
+class FavoriteViewSet(CreateDestroyViewSet):
+    serializer_class = FavoriteSerializer
+    queryset = Favorite.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        recipe_id = self.kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        serializer.save(user=self.request.user, recipe=recipe)
+
+    def destroy(self, request, *args, **kwargs):
+        recipe_id = kwargs['id']
+        recipe = get_object_or_404(Recipe, id=recipe_id)
+        user = self.request.user
+        favorite_object = get_object_or_404(Favorite, user=user, recipe=recipe)
+        super().perform_destroy(favorite_object)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SubscriptionListViewSet(ListViewSet):
+    serializer_class = SubscriptionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = SubscriptionPagination
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = user.subscriptions.all()
+        return queryset
+
+
+class SubscriptionCreateDestroyViewSet(CreateDestroyViewSet):
+    serializer_class = SubscriptionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        author_id = self.kwargs['id']
+        author = get_object_or_404(User, id=author_id)
+        serializer.save(user=self.request.user, author=author)
+
+    def destroy(self, request, *args, **kwargs):
+        author_id = kwargs['id']
+        author = get_object_or_404(User, id=author_id)
+        user = self.request.user
+        subscription = get_object_or_404(Subscription, user=user,
+                                         author=author)
+        super().perform_destroy(subscription)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class CartCreateDestroyViewSet(CreateDestroyViewSet):
     serializer_class = CartSerializer
-    http_method_names = ['post', 'delete']
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
