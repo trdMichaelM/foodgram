@@ -28,7 +28,6 @@ DB_PORT=5432
 ```
 Скоировать файлы docker-compose.yaml и default.conf из проекта на сервер в home/<username>/foodgram/deploy/
 Скоировать frontend/ в home/<username>/foodgram/
-Скоировать data/ в home/<username>/foodgram/
 ```
 
 Запускаем:
